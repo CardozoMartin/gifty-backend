@@ -1,16 +1,16 @@
+import dotenv from 'dotenv';
+// dotenv debe correr antes que cualquier otro import que lea process.env
+dotenv.config();
+
 import express from 'express';
 import cors from 'cors';
-import path from 'path';
-import dotenv from 'dotenv';
 import { connectDatabase } from './config/database';
 import productRoutes from './routes/productRoutes';
 import orderRoutes from './routes/orderRoutes';
 import authRoutes from './routes/authRoutes';
 import configRoutes from './routes/configRoutes';
+import userAuthRoutes from './routes/userAuthRoutes';
 import { requireAuth } from './middlewares/authMiddleware';
-
-// Carga las variables de entorno desde el archivo .env
-dotenv.config();
 
 const app = express();
 const puerto = process.env.PORT || 4000;
@@ -28,9 +28,6 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Sirve las imágenes subidas como archivos estáticos
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-
 // ─── Rutas de la API ────────────────────────────────────────────────────────
 
 // Auth — pública (no requiere token)
@@ -45,6 +42,9 @@ app.use('/api/pedidos', orderRoutes);
 
 // Config — GET público, PUT protegido dentro del router
 app.use('/api/config', configRoutes);
+
+// Usuarios — registro, verificación, login y recupero de contraseña
+app.use('/api/usuarios', userAuthRoutes);
 
 // Health check — público
 app.get('/api/health', (_req, res) => {

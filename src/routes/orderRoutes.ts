@@ -4,13 +4,18 @@ import {
   getOrderById,
   createOrder,
   updateOrderStatus,
+  getMisPedidos,
 } from '../controllers/OrderController';
 import { requireAuth } from '../middlewares/authMiddleware';
+import { requireUserAuth } from '../middlewares/userAuthMiddleware';
 
 const router = Router();
 
 // ─── Ruta pública — el cliente crea su pedido sin autenticación ────────────
 router.post('/', createOrder);
+
+// ─── Ruta del cliente logueado — sus propios pedidos ──────────────────────
+router.get('/mis-pedidos', requireUserAuth, getMisPedidos);
 
 // ─── Rutas del panel admin — requieren token válido ────────────────────────
 router.get('/admin', requireAuth, getOrders);

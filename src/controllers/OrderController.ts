@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import { OrderService } from '../services/OrderService';
 import { EstadoPedido } from '../types';
+import { Pedido } from '../models/Order';
+import { Usuario } from '../models/Usuario';
+import { UserRequest } from '../middlewares/userAuthMiddleware';
 
 const serviciosPedido = new OrderService();
 
@@ -35,6 +38,21 @@ export const createOrder = async (req: Request, res: Response): Promise<void> =>
   } catch (error) {
     const mensaje = error instanceof Error ? error.message : 'Error al crear el pedido';
     res.status(400).json({ ok: false, mensaje });
+  }
+};
+
+// GET /api/pedidos/mis-pedidos — pedidos del usuario logueado (por email)
+export const getMisPedidos = async (req: UserRequest, res: Response): Promise<void> => {
+  try {
+    const usuario = await Usuario.findById(req.usuarioId).select('email');
+    if (!usuario) {
+      res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
+      return;
+    }
+    const pedidos = await Pedido.find({ 'cliente.email': usuario.email }).sort({ createdAt: -1 });
+    res.json({ ok: true, datos: pedidos });
+  } catch (error) {
+    res.status(500).json({ ok: false, mensaje: 'Error al obtener los pedidos' });
   }
 };
 

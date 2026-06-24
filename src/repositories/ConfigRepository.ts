@@ -20,7 +20,7 @@ export class ConfigRepository {
   }
 
   // Actualiza la config existente
-  async update(datos: Partial<Pick<IConfig, 'metodosPago' | 'mediosEnvio' | 'notaEnvio'>>): Promise<IConfig> {
+  async update(datos: Partial<Pick<IConfig, 'metodosPago' | 'mediosEnvio' | 'notaEnvio' | 'compraMinima' | 'descuentos' | 'descuentoEfectivo'>>): Promise<IConfig> {
     const config = await this.get();
     Object.assign(config, datos);
     return config.save();

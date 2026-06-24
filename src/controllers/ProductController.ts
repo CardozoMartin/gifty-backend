@@ -95,19 +95,19 @@ export const uploadProductImage = async (req: Request, res: Response): Promise<v
   try {
     const { id } = req.params;
 
-    // Multer pone el archivo en req.file después de procesar el upload
     if (!req.file) {
       res.status(400).json({ ok: false, mensaje: 'No se envió ninguna imagen' });
       return;
     }
 
-    // Guardamos la ruta relativa al servidor
-    const rutaImagen = `/uploads/${req.file.filename}`;
-    const producto = await servicioProducto.addImage(id, rutaImagen);
+    // multer-storage-cloudinary expone la URL pública en req.file.path
+    const urlImagen = (req.file as any).path;
+    const producto = await servicioProducto.addImage(id, urlImagen);
 
     res.json({ ok: true, datos: producto });
   } catch (error) {
-    const mensaje = error instanceof Error ? error.message : 'Error al subir imagen';
+    console.error('Error uploadProductImage:', JSON.stringify(error, null, 2));
+    const mensaje = error instanceof Error ? error.message : JSON.stringify(error);
     res.status(400).json({ ok: false, mensaje });
   }
 };
