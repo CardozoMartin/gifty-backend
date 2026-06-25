@@ -3,7 +3,6 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { Usuario } from '../models/Usuario';
-import { emailService } from '../services/emailService';
 import { UserRequest } from '../middlewares/userAuthMiddleware';
 
 const JWT_SECRET = () => process.env.JWT_SECRET || 'jwt_secret_fallback';
@@ -28,27 +27,20 @@ export const registro = async (req: Request, res: Response): Promise<void> => {
     }
 
     const hash = await bcrypt.hash(password, 12);
-    const tokenVerificacion = generarTokenAleatorio();
-    const tokenVerificacionExpira = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
-    const usuario = await Usuario.create({
+    await Usuario.create({
       nombre,
       email,
       password: hash,
       empresa,
       telefono,
-      tokenVerificacion,
-      tokenVerificacionExpira,
+      verificado: true, // cuenta activa de inmediato, sin verificación por email
     });
 
     res.status(201).json({
       ok: true,
-      mensaje: 'Cuenta creada. Revisá tu email para verificar la cuenta.',
+      mensaje: '¡Cuenta creada! Ya podés iniciar sesión.',
     });
-
-    // Envío de email no bloqueante — si falla no afecta el registro
-    emailService.sendVerification(usuario.nombre, usuario.email, tokenVerificacion)
-      .catch((e) => console.error('Error email verificación:', e?.message));
   } catch (error: any) {
     console.error('Error registro:', error?.message || error);
     res.status(500).json({ ok: false, mensaje: error?.message || 'Error al crear la cuenta' });
@@ -105,11 +97,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     const usuario = await Usuario.findOne({ email: email.toLowerCase() });
     if (!usuario) {
       res.status(401).json({ ok: false, mensaje: 'Email o contraseña incorrectos' });
-      return;
-    }
-
-    if (!usuario.verificado) {
-      res.status(401).json({ ok: false, mensaje: 'Debés verificar tu email antes de ingresar' });
       return;
     }
 
@@ -186,16 +173,7 @@ export const recuperarPassword = async (req: Request, res: Response): Promise<vo
       return;
     }
 
-    const tokenReset = generarTokenAleatorio();
-    usuario.tokenResetPassword = tokenReset;
-    usuario.tokenResetPasswordExpira = new Date(Date.now() + 60 * 60 * 1000); // 1h
-    await usuario.save();
-
-    res.json({ ok: true, mensaje: 'Si el email está registrado, recibirás las instrucciones.' });
-
-    // Envío de email no bloqueante
-    emailService.sendPasswordReset(usuario.nombre, usuario.email, tokenReset)
-      .catch((e) => console.error('Error email reset password:', e?.message));
+    res.json({ ok: true, mensaje: 'Para recuperar tu contraseña, comunicate con nosotros por WhatsApp o teléfono.' });
   } catch (error) {
     console.error('Error recuperarPassword:', error);
     res.status(500).json({ ok: false, mensaje: 'Error al procesar la solicitud' });
