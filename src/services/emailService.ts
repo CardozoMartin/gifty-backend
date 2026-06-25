@@ -106,7 +106,8 @@ const boton = (texto: string, url: string) =>
 
 // ── Envío centralizado ────────────────────────────────────────────────────────
 const enviar = async (to: string, subject: string, html: string) => {
-  await crearTransporte().sendMail({ from: FROM, to, subject, html });
+  const info = await crearTransporte().sendMail({ from: FROM, to, subject, html });
+  console.log(`📧 Email enviado a ${to} — messageId: ${info.messageId} — response: ${info.response}`);
 };
 
 export const emailService = {
