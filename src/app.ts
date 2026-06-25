@@ -18,9 +18,19 @@ const puerto = process.env.PORT || 4000;
 
 // ─── Middlewares globales ──────────────────────────────────────────────────
 
-// Permite solicitudes desde el frontend en desarrollo (localhost:5173)
+// Permite solicitudes desde el frontend (dev y producción)
+const origenesPermitidos = [
+  process.env.CLIENT_URL || 'http://localhost:5173',
+  'http://localhost:5173',
+  'https://gifty-mayorista.netlify.app',
+];
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Permite requests sin origin (Postman, mobile apps, curl)
+    if (!origin) return callback(null, true);
+    if (origenesPermitidos.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS bloqueado para origen: ${origin}`));
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
