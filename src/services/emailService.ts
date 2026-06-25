@@ -3,9 +3,9 @@ import { IPedido } from '../models/Order';
 
 const crearTransporte = () =>
   nodemailer.createTransport({
-    host: '74.125.133.109', // IP IPv4 fija de smtp.gmail.com — evita resolución IPv6 en Render
-    port: 465,
-    secure: true,
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // STARTTLS — puerto 587, compatible con Render
     auth: {
       user: process.env.EMAIL_USER,
       pass: (process.env.EMAIL_PASS || '').replace(/\s/g, ''),
