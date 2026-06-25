@@ -3,7 +3,7 @@ import { OrderService } from '../services/OrderService';
 import { EstadoPedido } from '../types';
 import { Pedido } from '../models/Order';
 import { Usuario } from '../models/Usuario';
-import { Config } from '../models/Config';
+import { Config, IConfig } from '../models/Config';
 import { UserRequest } from '../middlewares/userAuthMiddleware';
 import { emailService } from '../services/emailService';
 
@@ -96,7 +96,8 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
     // Enviar email según el nuevo estado (no bloqueante)
     const emailCfg = await getEmailConfig();
 
-    const enviarSi = (clave: keyof typeof emailCfg, fn: () => Promise<void>) => {
+    type ClaveEmail = keyof IConfig['emailNotificaciones'];
+    const enviarSi = (clave: ClaveEmail, fn: () => Promise<void>) => {
       if (!emailCfg || emailCfg[clave]) {
         fn().catch((e) => console.error(`Email ${String(clave)}:`, e?.message));
       }
