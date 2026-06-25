@@ -76,6 +76,8 @@ const startServer = async (): Promise<void> => {
   app.listen(puerto, () => {
     console.log(`🚀 Servidor corriendo en http://localhost:${puerto}`);
     console.log(`📦 API disponible en http://localhost:${puerto}/api`);
+    console.log(`📧 EMAIL_USER: ${process.env.EMAIL_USER || 'NO DEFINIDO'}`);
+    console.log(`📧 EMAIL_PASS: ${process.env.EMAIL_PASS ? 'CARGADO ✓' : 'NO DEFINIDO ✗'}`);
   });
 };
 
