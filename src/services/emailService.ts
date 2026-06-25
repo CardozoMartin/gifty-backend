@@ -6,6 +6,7 @@ const crearTransporte = () =>
     host: process.env.EMAIL_HOST,
     port: Number(process.env.EMAIL_PORT) || 587,
     secure: false,
+    family: 4, // fuerza IPv4 — Render free tier bloquea IPv6
     auth: {
       user: process.env.EMAIL_USER,
       pass: (process.env.EMAIL_PASS || '').replace(/\s/g, ''),
