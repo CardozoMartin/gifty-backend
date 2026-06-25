@@ -50,9 +50,13 @@ app.use('/api/usuarios', userAuthRoutes);
 // Cupones — validación pública, CRUD admin
 app.use('/api/cupones', cuponRoutes);
 
-// Health check — público
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, mensaje: 'Servidor Gifty Mayorista funcionando' });
+// Health check / ping — público, usado por cronjob para mantener el servidor activo
+app.get('/api/ping', (_req, res) => {
+  res.json({
+    ok: true,
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // ─── Inicio del servidor ────────────────────────────────────────────────────

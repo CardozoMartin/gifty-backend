@@ -198,6 +198,42 @@ export const recuperarPassword = async (req: Request, res: Response): Promise<vo
   }
 };
 
+// POST /api/usuarios/cambiar-password — usuario logueado cambia su propia contraseña
+export const cambiarPassword = async (req: UserRequest, res: Response): Promise<void> => {
+  try {
+    const { passwordActual, passwordNueva } = req.body;
+
+    if (!passwordActual || !passwordNueva) {
+      res.status(400).json({ ok: false, mensaje: 'Todos los campos son obligatorios' });
+      return;
+    }
+    if (passwordNueva.length < 6) {
+      res.status(400).json({ ok: false, mensaje: 'La nueva contraseña debe tener al menos 6 caracteres' });
+      return;
+    }
+
+    const usuario = await Usuario.findById(req.usuarioId);
+    if (!usuario) {
+      res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
+      return;
+    }
+
+    const passwordOk = await bcrypt.compare(passwordActual, usuario.password);
+    if (!passwordOk) {
+      res.status(400).json({ ok: false, mensaje: 'La contraseña actual es incorrecta' });
+      return;
+    }
+
+    usuario.password = await bcrypt.hash(passwordNueva, 12);
+    await usuario.save();
+
+    res.json({ ok: true, mensaje: 'Contraseña actualizada correctamente' });
+  } catch (error) {
+    console.error('Error cambiarPassword:', error);
+    res.status(500).json({ ok: false, mensaje: 'Error al cambiar la contraseña' });
+  }
+};
+
 // POST /api/usuarios/reset-password/:token
 export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   try {

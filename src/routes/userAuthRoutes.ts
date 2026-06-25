@@ -5,6 +5,7 @@ import {
   login,
   recuperarPassword,
   resetPassword,
+  cambiarPassword,
   getPerfil,
   updatePerfil,
 } from '../controllers/UserAuthController';
@@ -19,5 +20,6 @@ router.post('/recuperar-password', recuperarPassword);
 router.post('/reset-password/:token', resetPassword);
 router.get('/perfil', requireUserAuth, getPerfil);
 router.put('/perfil', requireUserAuth, updatePerfil);
+router.post('/cambiar-password', requireUserAuth, cambiarPassword);
 
 export default router;
