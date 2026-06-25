@@ -1,19 +1,10 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import { IPedido } from '../models/Order';
 
-const crearTransporte = () =>
-  nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // SSL en lugar de STARTTLS — puerto 465 está permitido en Render free
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: (process.env.EMAIL_PASS || '').replace(/\s/g, ''),
-    },
-  });
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const BASE_URL = process.env.CLIENT_URL || 'http://localhost:5173';
-const FROM = `"Gifty Mayorista" <${process.env.EMAIL_USER}>`;
+const FROM = 'Gifty Mayorista <onboarding@resend.dev>';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (n: number) =>
@@ -106,137 +97,104 @@ const badgeEstado = (estado: string) =>
 const boton = (texto: string, url: string) =>
   `<a href="${url}" style="display:inline-block;margin:20px 0 8px;padding:13px 32px;background:linear-gradient(135deg,#e91e8c,#9b5ab3);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">${texto}</a>`;
 
+// ── Envío centralizado ────────────────────────────────────────────────────────
+const enviar = async (to: string, subject: string, html: string) => {
+  const { error } = await resend.emails.send({ from: FROM, to, subject, html });
+  if (error) throw new Error(error.message);
+};
+
 export const emailService = {
   // ── Auth ────────────────────────────────────────────────────────────────────
   async sendVerification(nombre: string, email: string, token: string) {
     const link = `${BASE_URL}/verificar-email/${token}`;
-    await crearTransporte().sendMail({
-      from: FROM, to: email,
-      subject: 'Verificá tu cuenta en Gifty Mayorista',
-      html: layout(`
-        <h2 style="margin:0 0 8px;font-size:20px;color:#111827">¡Hola, ${nombre}! 👋</h2>
-        <p style="color:#6b7280;margin:0 0 20px">Gracias por registrarte en <strong style="color:#111827">Gifty Mayorista</strong>. Hacé click para verificar tu cuenta:</p>
-        ${boton('Verificar mi cuenta', link)}
-        <p style="color:#9ca3af;font-size:12px;margin-top:16px">Este link expira en 24 horas. Si no te registraste, ignorá este email.</p>
-      `),
-    });
+    await enviar(email, 'Verificá tu cuenta en Gifty Mayorista', layout(`
+      <h2 style="margin:0 0 8px;font-size:20px;color:#111827">¡Hola, ${nombre}! 👋</h2>
+      <p style="color:#6b7280;margin:0 0 20px">Gracias por registrarte en <strong style="color:#111827">Gifty Mayorista</strong>. Hacé click para verificar tu cuenta:</p>
+      ${boton('Verificar mi cuenta', link)}
+      <p style="color:#9ca3af;font-size:12px;margin-top:16px">Este link expira en 24 horas. Si no te registraste, ignorá este email.</p>
+    `));
   },
 
   async sendPasswordReset(nombre: string, email: string, token: string) {
     const link = `${BASE_URL}/reset-password/${token}`;
-    await crearTransporte().sendMail({
-      from: FROM, to: email,
-      subject: 'Recuperar contraseña — Gifty Mayorista',
-      html: layout(`
-        <h2 style="margin:0 0 8px;font-size:20px;color:#111827">Recuperar contraseña</h2>
-        <p style="color:#6b7280;margin:0 0 20px">Hola <strong style="color:#111827">${nombre}</strong>, recibimos una solicitud para resetear tu contraseña.</p>
-        ${boton('Resetear contraseña', link)}
-        <p style="color:#9ca3af;font-size:12px;margin-top:16px">Este link expira en 1 hora. Si no lo solicitaste, ignorá este email.</p>
-      `),
-    });
+    await enviar(email, 'Recuperar contraseña — Gifty Mayorista', layout(`
+      <h2 style="margin:0 0 8px;font-size:20px;color:#111827">Recuperar contraseña</h2>
+      <p style="color:#6b7280;margin:0 0 20px">Hola <strong style="color:#111827">${nombre}</strong>, recibimos una solicitud para resetear tu contraseña.</p>
+      ${boton('Resetear contraseña', link)}
+      <p style="color:#9ca3af;font-size:12px;margin-top:16px">Este link expira en 1 hora. Si no lo solicitaste, ignorá este email.</p>
+    `));
   },
 
   // ── Pedidos ─────────────────────────────────────────────────────────────────
-
-  // Estado: pedido recibido (se dispara al crear el pedido)
   async sendPedidoRecibido(pedido: IPedido) {
     const nombre = pedido.cliente.nombre;
-    await crearTransporte().sendMail({
-      from: FROM, to: pedido.cliente.email,
-      subject: `✅ Pedido recibido ${pedido.numeroPedido} — Gifty Mayorista`,
-      html: layout(`
-        <h2 style="margin:0 0 4px;font-size:20px;color:#111827">¡Recibimos tu pedido! 🎉</h2>
-        <p style="color:#6b7280;margin:0 0 6px">Hola <strong style="color:#111827">${nombre}</strong>, ya tenemos tu pedido y lo estamos revisando.</p>
-        <p style="margin:0 0 20px;color:#6b7280">N° de pedido: <strong style="color:#e91e8c;font-size:16px">${pedido.numeroPedido}</strong></p>
-        ${tablaItems(pedido)}
-        <div style="background:#f9fafb;border-radius:10px;padding:16px;margin-top:4px;font-size:13px;color:#374151">
-          <p style="margin:0 0 4px"><strong>Método de pago:</strong> ${pedido.metodoPago || '—'}</p>
-          <p style="margin:0 0 4px"><strong>Medio de envío:</strong> ${pedido.medioEnvio || '—'}</p>
-          <p style="margin:0"><strong>Dirección:</strong> ${pedido.cliente.direccion}, ${pedido.cliente.ciudad}</p>
-        </div>
-        <p style="color:#6b7280;font-size:13px;margin-top:20px">Nos pondremos en contacto a la brevedad para coordinar el pago y el despacho. ¡Gracias por elegirnos!</p>
-        ${boton('Ver mis pedidos', `${BASE_URL}/mi-cuenta`)}
-      `),
-    });
+    await enviar(pedido.cliente.email, `✅ Pedido recibido ${pedido.numeroPedido} — Gifty Mayorista`, layout(`
+      <h2 style="margin:0 0 4px;font-size:20px;color:#111827">¡Recibimos tu pedido! 🎉</h2>
+      <p style="color:#6b7280;margin:0 0 6px">Hola <strong style="color:#111827">${nombre}</strong>, ya tenemos tu pedido y lo estamos revisando.</p>
+      <p style="margin:0 0 20px;color:#6b7280">N° de pedido: <strong style="color:#e91e8c;font-size:16px">${pedido.numeroPedido}</strong></p>
+      ${tablaItems(pedido)}
+      <div style="background:#f9fafb;border-radius:10px;padding:16px;margin-top:4px;font-size:13px;color:#374151">
+        <p style="margin:0 0 4px"><strong>Método de pago:</strong> ${pedido.metodoPago || '—'}</p>
+        <p style="margin:0 0 4px"><strong>Medio de envío:</strong> ${pedido.medioEnvio || '—'}</p>
+        <p style="margin:0"><strong>Dirección:</strong> ${pedido.cliente.direccion}, ${pedido.cliente.ciudad}</p>
+      </div>
+      <p style="color:#6b7280;font-size:13px;margin-top:20px">Nos pondremos en contacto a la brevedad para coordinar el pago y el despacho. ¡Gracias por elegirnos!</p>
+      ${boton('Ver mis pedidos', `${BASE_URL}/mi-cuenta`)}
+    `));
   },
 
-  // Estado: confirmado
   async sendPedidoConfirmado(pedido: IPedido) {
-    await crearTransporte().sendMail({
-      from: FROM, to: pedido.cliente.email,
-      subject: `🔵 Pedido confirmado ${pedido.numeroPedido} — Gifty Mayorista`,
-      html: layout(`
-        <h2 style="margin:0 0 4px;font-size:20px;color:#111827">¡Tu pedido fue confirmado! 🙌</h2>
-        <p style="color:#6b7280;margin:0 0 20px">Hola <strong style="color:#111827">${pedido.cliente.nombre}</strong>, confirmamos la recepción de tu pago y comenzamos a procesar tu pedido.</p>
-        <p style="margin:0 0 20px">N° <strong style="color:#e91e8c">${pedido.numeroPedido}</strong> · Estado: ${badgeEstado('confirmado')}</p>
-        ${tablaItems(pedido)}
-        ${boton('Ver mis pedidos', `${BASE_URL}/mi-cuenta`)}
-      `),
-    });
+    await enviar(pedido.cliente.email, `🔵 Pedido confirmado ${pedido.numeroPedido} — Gifty Mayorista`, layout(`
+      <h2 style="margin:0 0 4px;font-size:20px;color:#111827">¡Tu pedido fue confirmado! 🙌</h2>
+      <p style="color:#6b7280;margin:0 0 20px">Hola <strong style="color:#111827">${pedido.cliente.nombre}</strong>, confirmamos la recepción de tu pago y comenzamos a procesar tu pedido.</p>
+      <p style="margin:0 0 20px">N° <strong style="color:#e91e8c">${pedido.numeroPedido}</strong> · Estado: ${badgeEstado('confirmado')}</p>
+      ${tablaItems(pedido)}
+      ${boton('Ver mis pedidos', `${BASE_URL}/mi-cuenta`)}
+    `));
   },
 
-  // Estado: en preparación
   async sendPedidoEnPreparacion(pedido: IPedido) {
-    await crearTransporte().sendMail({
-      from: FROM, to: pedido.cliente.email,
-      subject: `🟣 Tu pedido está en preparación — ${pedido.numeroPedido}`,
-      html: layout(`
-        <h2 style="margin:0 0 4px;font-size:20px;color:#111827">¡Estamos preparando tu pedido! 📦</h2>
-        <p style="color:#6b7280;margin:0 0 20px">Hola <strong style="color:#111827">${pedido.cliente.nombre}</strong>, tu pedido ya está en manos de nuestro equipo y lo estamos armando con todo el cuidado.</p>
-        <p style="margin:0 0 20px">N° <strong style="color:#e91e8c">${pedido.numeroPedido}</strong> · Estado: ${badgeEstado('en_preparacion')}</p>
-        ${tablaItems(pedido)}
-        <p style="color:#6b7280;font-size:13px;margin-top:4px">Te avisaremos cuando sea despachado. ¡Ya falta poco!</p>
-        ${boton('Ver mis pedidos', `${BASE_URL}/mi-cuenta`)}
-      `),
-    });
+    await enviar(pedido.cliente.email, `🟣 Tu pedido está en preparación — ${pedido.numeroPedido}`, layout(`
+      <h2 style="margin:0 0 4px;font-size:20px;color:#111827">¡Estamos preparando tu pedido! 📦</h2>
+      <p style="color:#6b7280;margin:0 0 20px">Hola <strong style="color:#111827">${pedido.cliente.nombre}</strong>, tu pedido ya está en manos de nuestro equipo y lo estamos armando con todo el cuidado.</p>
+      <p style="margin:0 0 20px">N° <strong style="color:#e91e8c">${pedido.numeroPedido}</strong> · Estado: ${badgeEstado('en_preparacion')}</p>
+      ${tablaItems(pedido)}
+      <p style="color:#6b7280;font-size:13px;margin-top:4px">Te avisaremos cuando sea despachado. ¡Ya falta poco!</p>
+      ${boton('Ver mis pedidos', `${BASE_URL}/mi-cuenta`)}
+    `));
   },
 
-  // Estado: enviado
   async sendPedidoEnviado(pedido: IPedido) {
-    await crearTransporte().sendMail({
-      from: FROM, to: pedido.cliente.email,
-      subject: `🚚 Tu pedido fue enviado — ${pedido.numeroPedido}`,
-      html: layout(`
-        <h2 style="margin:0 0 4px;font-size:20px;color:#111827">¡Tu pedido está en camino! 🚚</h2>
-        <p style="color:#6b7280;margin:0 0 20px">Hola <strong style="color:#111827">${pedido.cliente.nombre}</strong>, tu pedido ya fue despachado y está en camino a tu dirección.</p>
-        <p style="margin:0 0 4px">N° <strong style="color:#e91e8c">${pedido.numeroPedido}</strong> · Estado: ${badgeEstado('enviado')}</p>
-        <p style="color:#6b7280;font-size:13px;margin:0 0 20px">Dirección de entrega: <strong>${pedido.cliente.direccion}, ${pedido.cliente.ciudad}, ${pedido.cliente.provincia}</strong></p>
-        ${tablaItems(pedido)}
-        <p style="color:#6b7280;font-size:13px;margin-top:4px">Ante cualquier consulta sobre el envío, respondé este email y te ayudamos.</p>
-        ${boton('Ver mis pedidos', `${BASE_URL}/mi-cuenta`)}
-      `),
-    });
+    await enviar(pedido.cliente.email, `🚚 Tu pedido fue enviado — ${pedido.numeroPedido}`, layout(`
+      <h2 style="margin:0 0 4px;font-size:20px;color:#111827">¡Tu pedido está en camino! 🚚</h2>
+      <p style="color:#6b7280;margin:0 0 20px">Hola <strong style="color:#111827">${pedido.cliente.nombre}</strong>, tu pedido ya fue despachado y está en camino a tu dirección.</p>
+      <p style="margin:0 0 4px">N° <strong style="color:#e91e8c">${pedido.numeroPedido}</strong> · Estado: ${badgeEstado('enviado')}</p>
+      <p style="color:#6b7280;font-size:13px;margin:0 0 20px">Dirección de entrega: <strong>${pedido.cliente.direccion}, ${pedido.cliente.ciudad}, ${pedido.cliente.provincia}</strong></p>
+      ${tablaItems(pedido)}
+      <p style="color:#6b7280;font-size:13px;margin-top:4px">Ante cualquier consulta sobre el envío, respondé este email y te ayudamos.</p>
+      ${boton('Ver mis pedidos', `${BASE_URL}/mi-cuenta`)}
+    `));
   },
 
-  // Estado: entregado
   async sendPedidoEntregado(pedido: IPedido) {
-    await crearTransporte().sendMail({
-      from: FROM, to: pedido.cliente.email,
-      subject: `✅ Pedido entregado — ${pedido.numeroPedido}`,
-      html: layout(`
-        <h2 style="margin:0 0 4px;font-size:20px;color:#111827">¡Tu pedido fue entregado! 🎁</h2>
-        <p style="color:#6b7280;margin:0 0 20px">Hola <strong style="color:#111827">${pedido.cliente.nombre}</strong>, confirmamos que tu pedido fue entregado exitosamente. Esperamos que estés feliz con tu compra.</p>
-        <p style="margin:0 0 20px">N° <strong style="color:#e91e8c">${pedido.numeroPedido}</strong> · Estado: ${badgeEstado('entregado')}</p>
-        ${tablaItems(pedido)}
-        <p style="color:#6b7280;font-size:13px;margin-top:4px">¡Gracias por confiar en <strong>Gifty Mayorista</strong>! Esperamos verte en tu próximo pedido. 💖</p>
-        ${boton('Volver a la tienda', `${BASE_URL}/tienda`)}
-      `),
-    });
+    await enviar(pedido.cliente.email, `✅ Pedido entregado — ${pedido.numeroPedido}`, layout(`
+      <h2 style="margin:0 0 4px;font-size:20px;color:#111827">¡Tu pedido fue entregado! 🎁</h2>
+      <p style="color:#6b7280;margin:0 0 20px">Hola <strong style="color:#111827">${pedido.cliente.nombre}</strong>, confirmamos que tu pedido fue entregado exitosamente. Esperamos que estés feliz con tu compra.</p>
+      <p style="margin:0 0 20px">N° <strong style="color:#e91e8c">${pedido.numeroPedido}</strong> · Estado: ${badgeEstado('entregado')}</p>
+      ${tablaItems(pedido)}
+      <p style="color:#6b7280;font-size:13px;margin-top:4px">¡Gracias por confiar en <strong>Gifty Mayorista</strong>! Esperamos verte en tu próximo pedido. 💖</p>
+      ${boton('Volver a la tienda', `${BASE_URL}/tienda`)}
+    `));
   },
 
-  // Estado: cancelado
   async sendPedidoCancelado(pedido: IPedido) {
-    await crearTransporte().sendMail({
-      from: FROM, to: pedido.cliente.email,
-      subject: `❌ Pedido cancelado — ${pedido.numeroPedido}`,
-      html: layout(`
-        <h2 style="margin:0 0 4px;font-size:20px;color:#111827">Tu pedido fue cancelado</h2>
-        <p style="color:#6b7280;margin:0 0 20px">Hola <strong style="color:#111827">${pedido.cliente.nombre}</strong>, lamentamos informarte que tu pedido fue cancelado.</p>
-        <p style="margin:0 0 20px">N° <strong style="color:#e91e8c">${pedido.numeroPedido}</strong> · Estado: ${badgeEstado('cancelado')}</p>
-        ${tablaItems(pedido)}
-        <p style="color:#6b7280;font-size:13px;margin-top:4px">Si tenés dudas sobre la cancelación o necesitás más información, respondé este email y te ayudamos a la brevedad.</p>
-        ${boton('Contactarnos', `${BASE_URL}`)}
-      `),
-    });
+    await enviar(pedido.cliente.email, `❌ Pedido cancelado — ${pedido.numeroPedido}`, layout(`
+      <h2 style="margin:0 0 4px;font-size:20px;color:#111827">Tu pedido fue cancelado</h2>
+      <p style="color:#6b7280;margin:0 0 20px">Hola <strong style="color:#111827">${pedido.cliente.nombre}</strong>, lamentamos informarte que tu pedido fue cancelado.</p>
+      <p style="margin:0 0 20px">N° <strong style="color:#e91e8c">${pedido.numeroPedido}</strong> · Estado: ${badgeEstado('cancelado')}</p>
+      ${tablaItems(pedido)}
+      <p style="color:#6b7280;font-size:13px;margin-top:4px">Si tenés dudas sobre la cancelación o necesitás más información, respondé este email y te ayudamos a la brevedad.</p>
+      ${boton('Contactarnos', `${BASE_URL}`)}
+    `));
   },
 };
