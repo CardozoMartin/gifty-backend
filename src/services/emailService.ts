@@ -1,10 +1,17 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 import { IPedido } from '../models/Order';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const crearTransporte = () =>
+  nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: (process.env.EMAIL_PASS || '').replace(/\s/g, ''),
+    },
+  });
 
 const BASE_URL = process.env.CLIENT_URL || 'http://localhost:5173';
-const FROM = 'Gifty Mayorista <onboarding@resend.dev>';
+const FROM = `Gifty Mayorista <${process.env.EMAIL_USER}>`;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (n: number) =>
@@ -99,8 +106,7 @@ const boton = (texto: string, url: string) =>
 
 // ── Envío centralizado ────────────────────────────────────────────────────────
 const enviar = async (to: string, subject: string, html: string) => {
-  const { error } = await resend.emails.send({ from: FROM, to, subject, html });
-  if (error) throw new Error(error.message);
+  await crearTransporte().sendMail({ from: FROM, to, subject, html });
 };
 
 export const emailService = {
