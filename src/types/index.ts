@@ -29,10 +29,13 @@ export interface ItemPedido {
 // Datos del cliente al hacer el pedido
 export interface DatosCliente {
   nombre: string;
+  apellido?: string;
   email: string;
   telefono: string;
+  dni?: string;
   empresa?: string;
   direccion: string;
   ciudad: string;
   provincia: string;
+  codigoPostal?: string;
 }

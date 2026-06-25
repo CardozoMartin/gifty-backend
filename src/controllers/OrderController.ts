@@ -3,9 +3,21 @@ import { OrderService } from '../services/OrderService';
 import { EstadoPedido } from '../types';
 import { Pedido } from '../models/Order';
 import { Usuario } from '../models/Usuario';
+import { Config } from '../models/Config';
 import { UserRequest } from '../middlewares/userAuthMiddleware';
+import { emailService } from '../services/emailService';
 
 const serviciosPedido = new OrderService();
+
+// Obtiene la config de notificaciones (falla silenciosamente si no existe)
+const getEmailConfig = async () => {
+  try {
+    const config = await Config.findOne().lean();
+    return config?.emailNotificaciones ?? null;
+  } catch {
+    return null;
+  }
+};
 
 // GET /api/admin/pedidos — lista todos los pedidos (con filtro opcional por estado)
 export const getOrders = async (req: Request, res: Response): Promise<void> => {
@@ -30,11 +42,22 @@ export const getOrderById = async (req: Request, res: Response): Promise<void> =
 };
 
 // POST /api/pedidos — crea un nuevo pedido desde la tienda
-export const createOrder = async (req: Request, res: Response): Promise<void> => {
+export const createOrder = async (req: UserRequest, res: Response): Promise<void> => {
   try {
-    const { cliente, items, metodoPago, notas } = req.body;
-    const pedido = await serviciosPedido.createOrder({ cliente, items, metodoPago, notas });
+    const { cliente, items, metodoPago, medioEnvio, notas, cuponCodigo } = req.body;
+    const pedido = await serviciosPedido.createOrder({
+      cliente, items, metodoPago, medioEnvio, notas, cuponCodigo,
+      usuarioId: req.usuarioId,
+    });
     res.status(201).json({ ok: true, datos: pedido });
+
+    // Enviar email de confirmación (no bloqueante)
+    const emailCfg = await getEmailConfig();
+    if (!emailCfg || emailCfg.pedidoRecibido) {
+      emailService.sendPedidoRecibido(pedido).catch((e) =>
+        console.error('Email pedido recibido:', e?.message)
+      );
+    }
   } catch (error) {
     const mensaje = error instanceof Error ? error.message : 'Error al crear el pedido';
     res.status(400).json({ ok: false, mensaje });
@@ -69,6 +92,33 @@ export const updateOrderStatus = async (req: Request, res: Response): Promise<vo
 
     const pedido = await serviciosPedido.updateOrderStatus(id, estado as EstadoPedido);
     res.json({ ok: true, datos: pedido });
+
+    // Enviar email según el nuevo estado (no bloqueante)
+    const emailCfg = await getEmailConfig();
+
+    const enviarSi = (clave: keyof typeof emailCfg, fn: () => Promise<void>) => {
+      if (!emailCfg || emailCfg[clave]) {
+        fn().catch((e) => console.error(`Email ${String(clave)}:`, e?.message));
+      }
+    };
+
+    switch (estado as EstadoPedido) {
+      case 'confirmado':
+        enviarSi('pedidoConfirmado', () => emailService.sendPedidoConfirmado(pedido));
+        break;
+      case 'en_preparacion':
+        enviarSi('pedidoEnPreparacion', () => emailService.sendPedidoEnPreparacion(pedido));
+        break;
+      case 'enviado':
+        enviarSi('pedidoEnviado', () => emailService.sendPedidoEnviado(pedido));
+        break;
+      case 'entregado':
+        enviarSi('pedidoEntregado', () => emailService.sendPedidoEntregado(pedido));
+        break;
+      case 'cancelado':
+        enviarSi('pedidoCancelado', () => emailService.sendPedidoCancelado(pedido));
+        break;
+    }
   } catch (error) {
     const mensaje = error instanceof Error ? error.message : 'Error al actualizar estado';
     res.status(400).json({ ok: false, mensaje });

@@ -10,6 +10,7 @@ import orderRoutes from './routes/orderRoutes';
 import authRoutes from './routes/authRoutes';
 import configRoutes from './routes/configRoutes';
 import userAuthRoutes from './routes/userAuthRoutes';
+import cuponRoutes from './routes/cuponRoutes';
 import { requireAuth } from './middlewares/authMiddleware';
 
 const app = express();
@@ -45,6 +46,9 @@ app.use('/api/config', configRoutes);
 
 // Usuarios — registro, verificación, login y recupero de contraseña
 app.use('/api/usuarios', userAuthRoutes);
+
+// Cupones — validación pública, CRUD admin
+app.use('/api/cupones', cuponRoutes);
 
 // Health check — público
 app.get('/api/health', (_req, res) => {

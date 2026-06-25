@@ -1,13 +1,16 @@
 import { OrderRepository } from '../repositories/OrderRepository';
 import { IPedido } from '../models/Order';
 import { EstadoPedido, ItemPedido, DatosCliente } from '../types';
+import { Cupon } from '../models/Cupon';
 
-// Datos que llegan desde el frontend para crear un pedido
 interface CrearPedidoInput {
   cliente: DatosCliente;
   items: ItemPedido[];
   metodoPago?: string;
+  medioEnvio?: string;
   notas?: string;
+  cuponCodigo?: string;
+  usuarioId?: string;
 }
 
 // Servicio de Pedido: lógica de negocio
@@ -50,16 +53,49 @@ export class OrderService {
       throw new Error('El pedido debe contener al menos un producto');
     }
 
-    // El total siempre se calcula en el servidor, nunca se confía en el cliente
-    const total = this.calculateTotal(input.items);
+    const subtotal = this.calculateTotal(input.items);
     const numeroPedido = await this.generateOrderNumber();
+
+    let descuentoCupon = 0;
+    let cuponCodigo: string | undefined;
+
+    // Validar y aplicar cupón si viene uno
+    if (input.cuponCodigo) {
+      const cupon = await Cupon.findOne({ codigo: input.cuponCodigo.toUpperCase() });
+
+      if (cupon && cupon.activo) {
+        const noVencido = !cupon.fechaVencimiento || cupon.fechaVencimiento >= new Date();
+        const noAgotado = cupon.usosMaximos === undefined || cupon.usosActuales < cupon.usosMaximos;
+        const noUsadoPorEsteUsuario = !cupon.unUsorPorUsuario || !input.usuarioId || !cupon.usuariosQueUsaron.includes(input.usuarioId);
+
+        if (noVencido && noAgotado && noUsadoPorEsteUsuario) {
+          descuentoCupon = cupon.tipo === 'porcentaje'
+            ? Math.round(subtotal * cupon.valor / 100)
+            : cupon.valor;
+
+          cuponCodigo = cupon.codigo;
+
+          // Registrar uso
+          await Cupon.findByIdAndUpdate(cupon._id, {
+            $inc: { usosActuales: 1 },
+            ...(input.usuarioId ? { $push: { usuariosQueUsaron: input.usuarioId } } : {}),
+          });
+        }
+      }
+    }
+
+    const total = Math.max(0, subtotal - descuentoCupon);
 
     return this.repositorio.create({
       numeroPedido,
       cliente: input.cliente,
       items: input.items,
+      subtotal,
+      descuentoCupon: descuentoCupon || undefined,
+      cuponCodigo,
       total,
       metodoPago: input.metodoPago,
+      medioEnvio: input.medioEnvio,
       notas: input.notas,
       estado: 'pendiente',
     });

@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { Usuario } from '../models/Usuario';
 import { emailService } from '../services/emailService';
+import { UserRequest } from '../middlewares/userAuthMiddleware';
 
 const JWT_SECRET = () => process.env.JWT_SECRET || 'jwt_secret_fallback';
 const JWT_EXPIRES = '7d';
@@ -131,6 +132,42 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   } catch (error) {
     console.error('Error login:', error);
     res.status(500).json({ ok: false, mensaje: 'Error al iniciar sesión' });
+  }
+};
+
+// GET /api/usuarios/perfil — devuelve datos del usuario autenticado
+export const getPerfil = async (req: UserRequest, res: Response): Promise<void> => {
+  try {
+    const usuario = await Usuario.findById(req.usuarioId).select('-password -tokenVerificacion -tokenVerificacionExpira -tokenResetPassword -tokenResetPasswordExpira');
+    if (!usuario) {
+      res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
+      return;
+    }
+    res.json({ ok: true, usuario });
+  } catch (error) {
+    res.status(500).json({ ok: false, mensaje: 'Error al obtener el perfil' });
+  }
+};
+
+// PUT /api/usuarios/perfil — actualiza datos del perfil (sin cambiar email ni password)
+export const updatePerfil = async (req: UserRequest, res: Response): Promise<void> => {
+  try {
+    const { nombre, apellido, empresa, telefono, dni, direccion, ciudad, provincia, codigoPostal } = req.body;
+
+    const usuario = await Usuario.findByIdAndUpdate(
+      req.usuarioId,
+      { $set: { nombre, apellido, empresa, telefono, dni, direccion, ciudad, provincia, codigoPostal } },
+      { new: true, runValidators: true, select: '-password -tokenVerificacion -tokenVerificacionExpira -tokenResetPassword -tokenResetPasswordExpira' }
+    );
+
+    if (!usuario) {
+      res.status(404).json({ ok: false, mensaje: 'Usuario no encontrado' });
+      return;
+    }
+
+    res.json({ ok: true, usuario });
+  } catch (error) {
+    res.status(500).json({ ok: false, mensaje: 'Error al actualizar el perfil' });
   }
 };
 

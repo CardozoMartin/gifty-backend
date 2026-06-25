@@ -7,12 +7,12 @@ import {
   getMisPedidos,
 } from '../controllers/OrderController';
 import { requireAuth } from '../middlewares/authMiddleware';
-import { requireUserAuth } from '../middlewares/userAuthMiddleware';
+import { requireUserAuth, optionalUserAuth } from '../middlewares/userAuthMiddleware';
 
 const router = Router();
 
 // ─── Ruta pública — el cliente crea su pedido sin autenticación ────────────
-router.post('/', createOrder);
+router.post('/', optionalUserAuth, createOrder);
 
 // ─── Ruta del cliente logueado — sus propios pedidos ──────────────────────
 router.get('/mis-pedidos', requireUserAuth, getMisPedidos);

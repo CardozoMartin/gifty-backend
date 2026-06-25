@@ -3,12 +3,16 @@ import { EstadoPedido, ItemPedido, DatosCliente } from '../types';
 
 // Interfaz tipada para el documento Pedido en Mongoose
 export interface IPedido extends Document {
-  numeroPedido: string;        // número legible: "GFT-00001"
+  numeroPedido: string;
   cliente: DatosCliente;
   items: ItemPedido[];
   total: number;
+  subtotal?: number;
+  descuentoCupon?: number;
+  cuponCodigo?: string;
   estado: EstadoPedido;
   metodoPago?: string;
+  medioEnvio?: string;
   notas?: string;
   createdAt: Date;
   updatedAt: Date;
@@ -30,12 +34,15 @@ const itemPedidoSchema = new Schema<ItemPedido>(
 const datosClienteSchema = new Schema<DatosCliente>(
   {
     nombre: { type: String, required: true, trim: true },
+    apellido: { type: String, trim: true },
     email: { type: String, required: true, trim: true, lowercase: true },
     telefono: { type: String, required: true, trim: true },
+    dni: { type: String, trim: true },
     empresa: { type: String, trim: true },
     direccion: { type: String, required: true, trim: true },
     ciudad: { type: String, required: true, trim: true },
     provincia: { type: String, required: true, trim: true },
+    codigoPostal: { type: String, trim: true },
   },
   { _id: false }
 );
@@ -78,10 +85,14 @@ const pedidoSchema = new Schema<IPedido>(
       type: String,
       trim: true,
     },
-    notas: {
+    medioEnvio: {
       type: String,
       trim: true,
     },
+    notas: { type: String, trim: true },
+    subtotal: { type: Number, min: 0 },
+    descuentoCupon: { type: Number, min: 0 },
+    cuponCodigo: { type: String, trim: true },
   },
   {
     timestamps: true,
