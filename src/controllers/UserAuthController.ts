@@ -41,12 +41,14 @@ export const registro = async (req: Request, res: Response): Promise<void> => {
       tokenVerificacionExpira,
     });
 
-    await emailService.sendVerification(usuario.nombre, usuario.email, tokenVerificacion);
-
     res.status(201).json({
       ok: true,
       mensaje: 'Cuenta creada. Revisá tu email para verificar la cuenta.',
     });
+
+    // Envío de email no bloqueante — si falla no afecta el registro
+    emailService.sendVerification(usuario.nombre, usuario.email, tokenVerificacion)
+      .catch((e) => console.error('Error email verificación:', e?.message));
   } catch (error: any) {
     console.error('Error registro:', error?.message || error);
     res.status(500).json({ ok: false, mensaje: error?.message || 'Error al crear la cuenta' });
@@ -189,9 +191,11 @@ export const recuperarPassword = async (req: Request, res: Response): Promise<vo
     usuario.tokenResetPasswordExpira = new Date(Date.now() + 60 * 60 * 1000); // 1h
     await usuario.save();
 
-    await emailService.sendPasswordReset(usuario.nombre, usuario.email, tokenReset);
-
     res.json({ ok: true, mensaje: 'Si el email está registrado, recibirás las instrucciones.' });
+
+    // Envío de email no bloqueante
+    emailService.sendPasswordReset(usuario.nombre, usuario.email, tokenReset)
+      .catch((e) => console.error('Error email reset password:', e?.message));
   } catch (error) {
     console.error('Error recuperarPassword:', error);
     res.status(500).json({ ok: false, mensaje: 'Error al procesar la solicitud' });
