@@ -3,15 +3,14 @@ import { IPedido } from '../models/Order';
 
 const crearTransporte = () =>
   nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: Number(process.env.EMAIL_PORT) || 587,
-    secure: false,
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // SSL en lugar de STARTTLS — puerto 465 está permitido en Render free
     auth: {
       user: process.env.EMAIL_USER,
       pass: (process.env.EMAIL_PASS || '').replace(/\s/g, ''),
     },
-    family: 4, // fuerza IPv4 — Render free tier bloquea IPv6
-  } as any);
+  });
 
 const BASE_URL = process.env.CLIENT_URL || 'http://localhost:5173';
 const FROM = `"Gifty Mayorista" <${process.env.EMAIL_USER}>`;
